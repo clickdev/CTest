@@ -9,119 +9,127 @@ namespace Calc
 {
     class Program
     {
-        private static void Main()
+        static int ExpParse(char[] exp)
         {
-            Calculator calculator = new Calculator();
-            EquationParser Expr = new EquationParser();
-            Console.Write("Please enter an expression (Type 'end' to terminate):");
+            Stack<int> numStack = new Stack<int>();
+            Stack<char> opStack = new Stack<char>();
 
-            bool doLoop = true;
-            bool isFirstLoop = true;
+            opStack.Push('(');
 
-            do
+            int index = 0;
+            while (index < exp.Length)
             {
-                if (!isFirstLoop)
+                if (index == exp.Length || exp[index] == ')')
                 {
-                    Console.Write(calculator.Result);
+                    EndParenthesis(numStack, opStack);
+                    index++;
                 }
-
-                string UserExp = Console.ReadLine();
-                if (UserExp == "end")
+                else if (exp[index] >= '0' && exp[index] <= '9')
                 {
-                    doLoop = false;
+                    index = ParseNumber(exp, index, numStack);
                 }
                 else
                 {
-                    ParseResult parsedInput = Expr.Parse(UserExp);
-
-                    long firstArgumentForOutput = (isFirstLoop ? parsedInput.FirstArgument : calculator.Result);
-
-                    calculator.Process(parsedInput);
-
-                    Console.WriteLine("\n{0}\t{1}\t{2}\t= {3}", firstArgumentForOutput, parsedInput.Operator, parsedInput.SecondArgument, calculator.Result);
+                    ParseOperator(exp[index], numStack, opStack);
+                    index++;
                 }
-
-                isFirstLoop = false;
             }
-            while (doLoop);
-            Console.Read();
+
+            return numStack.Pop();
         }
-    }
 
-    public class Calculator
-    {
-        private bool _isInitialized;
-
-        public long Result { get; private set; }
-
-        public void Process(ParseResult parsedInput)
+        
+        
+        static void ParseOperator(char op, Stack<int> numStack,
+                                         Stack<char> opStack)
         {
-            if (!this._isInitialized)
-            {
-                this.Result = parsedInput.FirstArgument;
+            while (opStack.Count > 0 &&
+                 OperatorEval(op, opStack.Peek()))
+                Evaluate(numStack, opStack);
 
-                this._isInitialized = true;
-            }
-
-            switch (parsedInput.Operator)
-            {
-                case "+":
-                    this.Result += parsedInput.SecondArgument;
-                    break;
-
-                case "-":
-                    this.Result -= parsedInput.SecondArgument;
-                    break;
-
-                case "*":
-                    this.Result *= parsedInput.SecondArgument;
-                    break;
-
-                case "/":
-                    this.Result /= parsedInput.SecondArgument;
-                    break;
-
-                case "%":
-                    this.Result %= parsedInput.SecondArgument;
-                    break;
-
-                default:
-                    break;
-            }
+            opStack.Push(op);
         }
-    }
 
-    public class ParseResult
-    {
-        public long FirstArgument { get; set; }
-
-        public string Operator { get; set; }
-
-        public long SecondArgument { get; set; }
-    }
-
-    public class EquationParser
-    {
-        public ParseResult Parse(string input)
+        static int ParseNumber(char[] exp, int index,
+                                      Stack<int> numStack)
         {
-            long firstArgument = 0;
-            Match firstMatch = Regex.Match(input, "^\\d+");
-            if (firstMatch.Success)
+            int value = 0;
+            while (index < exp.Length &&
+                    exp[index] >= '0' && exp[index] <= '9')
+                value = value + (int)(exp[index++] - '0');
+
+            numStack.Push(value);
+
+            return index;
+        }
+
+        static void EndParenthesis(Stack<int> numStack,
+                                              Stack<char> opStack)
+        {
+            while (opStack.Peek() != '(')
+                Evaluate(numStack, opStack);
+
+            opStack.Pop();
+        }
+
+        static bool OperatorEval(char op, char prevOp)
+        {
+            bool isOp = false;
+
+            switch (op)
             {
-                firstArgument = Convert.ToInt64(firstMatch.Value);
+                case '-':
+                    isOp = (prevOp != '(');
+                    break;
+                case '/':
+                    isOp = (prevOp == '*' || prevOp == '/');
+                    break;
             }
 
-            string operatorString = Regex.Match(input, "\\D+").Value;
+            return isOp;
+        }
 
-            Match secondMatch = Regex.Match(input, "\\d+$");
-            long secondArgument = Convert.ToInt64(secondMatch.Value);
+        static void Evaluate(Stack<int> numStack, Stack<char> opStack)
+        {
+            int right = numStack.Pop();
+            int left = numStack.Pop();
+            char op = opStack.Pop();
 
-            return new ParseResult()
+            int result = 0;
+            switch (op)
             {
-                FirstArgument = firstArgument,
-                Operator = operatorString,
-                SecondArgument = secondArgument
-            };
+                case '+':
+                    result = left + right;
+                    break;
+                case '-':
+                    result = left - right;
+                    break;
+                case '*':
+                    result = left * right;
+                    break;
+                case '/':
+                    result = left / right;
+                    break;
+            }
+
+            numStack.Push(result);
+        }
+
+        public static void Main(string[] args)
+        {
+            while (true)
+            {
+                Console.Write("Enter expression: ");
+                string line = Console.ReadLine();
+
+                if (string.IsNullOrEmpty(line))
+                    break;
+
+                char[] exp = line.ToCharArray();
+                int result = ExpParse(exp);
+                Console.WriteLine("{0}", result);
+
+            }
         }
     }
 }
